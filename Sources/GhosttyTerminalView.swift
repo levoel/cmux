@@ -4222,6 +4222,12 @@ class GhosttyNSView: NSView, NSUserInterfaceValidations {
         updateSurfaceSize(size: size)
     }
 
+#if DEBUG
+    fileprivate func debugPendingSurfaceSize() -> CGSize? {
+        pendingSurfaceSize
+    }
+#endif
+
     /// Force a full size reconciliation for the current bounds.
     /// Keep the drawable-size cache intact so redundant refresh paths do not
     /// reallocate Metal drawables when the pixel size is unchanged.
@@ -6455,6 +6461,7 @@ final class GhosttySurfaceScrollView: NSView {
         ) { [weak self] _ in
             self?.synchronizeScrollView()
         })
+
     }
 
     required init?(coder: NSCoder) {
@@ -7389,6 +7396,10 @@ final class GhosttySurfaceScrollView: NSView {
     @discardableResult
     func debugSimulateFileDrop(paths: [String]) -> Bool {
         surfaceView.debugSimulateFileDrop(paths: paths)
+    }
+
+    func debugPendingSurfaceSize() -> CGSize? {
+        surfaceView.debugPendingSurfaceSize()
     }
 
     func debugRegisteredDropTypes() -> [String] {
