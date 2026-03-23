@@ -2622,6 +2622,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
             PostHogAnalytics.shared.trackActive(reason: "didBecomeActive")
         }
 
+        // Un-occlude terminal surfaces in the selected workspace and update
+        // per-tab occlusion so only visible surfaces resume full rendering.
+        if let tabManager, let selectedWorkspace = tabManager.selectedWorkspace {
+            selectedWorkspace.setTerminalSurfacesOccluded(false)
+            selectedWorkspace.updateTerminalSurfaceOcclusion()
+        }
+
         guard let notificationStore else { return }
         notificationStore.handleApplicationDidBecomeActive()
         guard let tabManager else { return }
@@ -2659,6 +2666,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCent
     func applicationWillResignActive(_ notification: Notification) {
         guard !isTerminatingApp else { return }
         _ = saveSessionSnapshot(includeScrollback: false)
+        // Occlude all terminal surfaces when the app goes to background so Ghostty
+        // drops renderer thread priority and skips redraws entirely.
+        if let tabManager {
+            for workspace in tabManager.tabs {
+                workspace.setTerminalSurfacesOccluded(true)
+            }
+        }
     }
 
     func persistSessionForUpdateRelaunch() {

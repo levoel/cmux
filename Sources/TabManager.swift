@@ -754,6 +754,20 @@ class TabManager: ObservableObject {
             let generation = selectionSideEffectsGeneration
             DispatchQueue.main.async { [weak self] in
                 guard let self, self.selectionSideEffectsGeneration == generation else { return }
+
+                // Occlude terminal surfaces in the deactivated workspace so Ghostty
+                // drops renderer thread priority and skips redraws.
+                if let previousTabId,
+                   let previousTab = self.tabs.first(where: { $0.id == previousTabId }) {
+                    previousTab.setTerminalSurfacesOccluded(true)
+                }
+                // Un-occlude terminal surfaces in the newly selected workspace.
+                if let selectedTabId = self.selectedTabId,
+                   let selectedTab = self.tabs.first(where: { $0.id == selectedTabId }) {
+                    selectedTab.setTerminalSurfacesOccluded(false)
+                    selectedTab.updateTerminalSurfaceOcclusion()
+                }
+
                 self.focusSelectedTabPanel(previousTabId: previousTabId)
                 self.updateWindowTitleForSelectedTab()
                 if let selectedTabId = self.selectedTabId {

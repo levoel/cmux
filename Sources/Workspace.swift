@@ -5893,6 +5893,35 @@ final class Workspace: Identifiable, ObservableObject {
         return terminalPanels.contains { $0.surface.surface != nil }
     }
 
+    /// Tell all Ghostty terminal surfaces in this workspace whether they are occluded.
+    /// Occluded surfaces drop their renderer thread QoS and skip redraws, saving CPU
+    /// when the workspace is not the active tab.
+    func setTerminalSurfacesOccluded(_ occluded: Bool) {
+        for panel in panels.values {
+            guard let terminalPanel = panel as? TerminalPanel else { continue }
+            terminalPanel.surface.setOcclusion(!occluded)
+        }
+    }
+
+    /// Update occlusion for individual surfaces within this workspace based on
+    /// which tabs are currently selected in each bonsplit pane. Surfaces that are
+    /// not the selected tab in any pane are occluded.
+    func updateTerminalSurfaceOcclusion() {
+        var visiblePanelIds = Set<UUID>()
+        for paneId in bonsplitController.allPaneIds {
+            if let selectedTab = bonsplitController.selectedTab(inPane: paneId),
+               let panelId = panelIdFromSurfaceId(selectedTab.id) {
+                visiblePanelIds.insert(panelId)
+            }
+        }
+
+        for (panelId, panel) in panels {
+            guard let terminalPanel = panel as? TerminalPanel else { continue }
+            let isVisible = visiblePanelIds.contains(panelId)
+            terminalPanel.surface.setOcclusion(isVisible)
+        }
+    }
+
     func panelTitle(panelId: UUID) -> String? {
         guard let panel = panels[panelId] else { return nil }
         let fallback = panelTitles[panelId] ?? panel.displayTitle
@@ -9394,6 +9423,10 @@ extension Workspace: BonsplitDelegate {
         for (id, p) in panels where id != effectiveFocusedPanelId {
             p.unfocus()
         }
+
+        // Update terminal surface occlusion: surfaces that are not the selected tab
+        // in any visible pane should be occluded so Ghostty drops renderer priority.
+        updateTerminalSurfaceOcclusion()
 
         if let focusWindow = activationWindow(for: panel) {
             yieldForeignOwnedFocusIfNeeded(
